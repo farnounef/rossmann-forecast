@@ -6,11 +6,6 @@ Projet de prévision des ventes quotidiennes de magasins Rossmann, à partir des
 
 Je teste les modèles sur les 6 dernières semaines de l'historique (du 20 juin au 31 juillet 2015). Le modèle n'a jamais vu ces semaines pendant l'entraînement.
 
-| Modèle | RMSPE |
-|---|---|
-| Baseline : moyenne des 4 dernières ventes du même jour de la semaine | 0,266 |
-| LightGBM, 1000 arbres | 0,144 |
-
 Le RMSPE est une erreur en pourcentage : 0,144 veut dire environ 14 % d'écart avec les ventes réelles. Le modèle réduit donc l'erreur de presque moitié par rapport à la prévision simple.
 
 ## Ce que j'ai fait

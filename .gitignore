@@ -14,3 +14,7 @@ data/
 # MLflow (base et modèles enregistrés)
 mlflow.db
 mlruns/
+
+.env
+__pycache__/
+.ipynb_checkpoints/

@@ -1,0 +1,17 @@
+@'
+.venv/
+.git/
+.pytest_cache/
+__pycache__/
+*.pyc
+Notebooks/
+reports/
+tests/
+.github/
+mlflow.db
+rossmann.duckdb
+data/raw/train.csv
+data/raw/test.csv
+data/raw/submission.csv
+data/raw/mlruns/
+'@ | Set-Content -Encoding utf8 .dockerignore

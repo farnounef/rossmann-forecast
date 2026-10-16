@@ -1,22 +1,12 @@
-# Environnement Python
 .venv/
 __pycache__/
 .ipynb_checkpoints/
-
-# Données
 data/
 *.csv
-
-# Bases de données locales
 *.duckdb
 *.duckdb.wal
-
-# MLflow (base et modèles enregistrés)
 mlflow.db
 mlruns/
-
 models/
-
-.env
-__pycache__/
-.ipynb_checkpoints/
+reports/
+airflow/logs/

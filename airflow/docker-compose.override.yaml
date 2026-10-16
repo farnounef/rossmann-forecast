@@ -1,0 +1,11 @@
+
+services:
+  airflow-worker:
+    build: .
+    image: rossmann-airflow:3.3.2
+    volumes:
+      - ..:/opt/project                          
+      - uv-venv:/opt/airflow/project-venv       
+
+volumes:
+  uv-venv:

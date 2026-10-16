@@ -2889,6 +2889,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "httpx" },
     { name = "jupyterlab" },
     { name = "kaggle" },
     { name = "pre-commit" },
@@ -2916,6 +2917,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "jupyterlab", specifier = ">=4.6.4" },
     { name = "kaggle", specifier = ">=2.2.4" },
     { name = "pre-commit", specifier = ">=4.6.2" },

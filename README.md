@@ -2,7 +2,7 @@
 
 
 
-Projet de prévision des ventes quotidiennes de magasins Rossmann, à partir des données de la compétition Kaggle [Rossmann Store Sales](https://www.kaggle.com/c/rossmann-store-sales). J'ai utilisé DuckDB pour stocker et joindre les tables, LightGBM pour le modèle, MLflow pour suivre mes essais et Evidently pour surveiller la dérive des données.
+Projet de prévision des ventes quotidiennes de magasins Rossmann, à partir des données de la compétition Kaggle [Rossmann Store Sales](https://www.kaggle.com/c/rossmann-store-sales). J'ai utilisé DuckDB pour stocker et joindre les tables, LightGBM pour le modèle, MLflow pour suivre mes essais et Evidently pour surveiller la dérive des données. Le modèle est ensuite servi par une API FastAPI, emballée dans une image Docker, et le pipeline peut être lancé chaque semaine avec Airflow.
 
 ## Résultat
 
@@ -32,20 +32,82 @@ Je compare plusieurs versions de LightGBM, et la meilleure sur la validation est
 
 Avec Evidently, je compare les données d'entraînement et celles de `test.csv`, colonne par colonne, pour voir si elles se ressemblent. Les colonnes tirées de la date (`Year`, `Month`, `Day`, `WeekOfYear`) dérivent presque forcément, puisque le test couvre une autre période. Je produis donc deux rapports HTML : un complet, et un sans ces colonnes.
 
+## API de prévision
+
+Le modèle sauvegardé est exposé par une API FastAPI (`src/projet_home/api.py`). Elle reprend exactement les mêmes transformations que l'entraînement, donc les prévisions ne peuvent pas diverger du pipeline.
+
+
+Un magasin fermé (`Open = 0`) est prédit à 0. Un magasin inconnu, un `StateHoliday` invalide ou une liste vide renvoient une erreur 422.
+
+L'API charge le modèle et `store.csv` au démarrage : il faut donc avoir lancé `train` avant.
+
+```bash
+uv run uvicorn projet_home.api:app --reload
+```
+
+La documentation interactive est sur http://127.0.0.1:8000/docs. Exemple de requête :
+
+```json
+{"rows": [{"Store": 1, "Date": "2015-08-03", "Promo": 1}]}
+```
+
+## Docker
+
+Le `Dockerfile` à la racine emballe l'API : Python 3.13, `uv`, les dépendances du projet, le modèle sauvegardé (`models/`) et `store.csv`. Il faut donc avoir lancé `train` avant de construire l'image. Si on réentraîne, il faut reconstruire l'image.
+
+```bash
+docker build -t rossmann-api .
+docker run -p 8000:8000 rossmann-api
+```
+
+L'API est alors accessible sur http://localhost:8000/docs.
+
+## Automatisation avec Airflow
+
+Le dossier `airflow/` contient une installation d'Airflow lancée avec Docker Compose (version 3.3.2) et un DAG, `rossmann_pipeline`, qui enchaîne les trois scripts :
+
+```
+train  ->  predict  ->  drift
+```
+
+Le DAG est planifié chaque semaine (`@weekly`), relance une tâche une fois en cas d'échec et ne rattrape pas les semaines manquées. Chaque tâche lance un module du projet avec `uv run`, dans un environnement séparé de celui d'Airflow, pour éviter les conflits de paquets.
+
+| Fichier | Rôle |
+|---|---|
+| `airflow/docker-compose.yaml` | fichier officiel d'Airflow |
+| `airflow/Dockerfile` | image du worker : ajoute `uv` et la bibliothèque système de LightGBM |
+| `airflow/docker-compose.override.yaml` | partage le dossier du projet avec le worker |
+| `airflow/dags/rossmann_pipeline.py` | le DAG |
+
+Depuis le dossier `airflow/` :
+
+```bash
+docker compose build airflow-worker
+docker compose up airflow-init
+docker compose up -d
+```
+
+L'interface est sur http://localhost:8080 (identifiant `airflow`, mot de passe `airflow`). On y active `rossmann_pipeline`, puis on le lance avec le bouton de déclenchement. Le premier lancement est long, car `uv` installe les paquets du projet dans le conteneur.
+
+![Graphe du DAG Airflow](docs/images/airflow.png)
+
 ## Organisation du dépôt
 
 ```
-data/raw/              train.csv, test.csv, store.csv (non publiés)
+data/raw/             
 Notebooks/
-    rossmann.ipynb     exploration, modèles, MLflow, prédictions
-src/projet_home/       le pipeline en scripts Python
-tests/                 tests automatiques (pytest)
-.github/workflows/     intégration continue (GitHub Actions)
+    rossmann.ipynb     
+src/projet_home/       
+tests/                 
+airflow/               
+.github/workflows/     
+Dockerfile             
+.dockerignore
 pyproject.toml
 uv.lock
 ```
 
-Les données, la base DuckDB, la base MLflow, les modèles sauvegardés et les rapports ne sont pas dans le dépôt (voir `.gitignore`).
+Les données, la base DuckDB, la base MLflow, les modèles sauvegardés, les rapports et les journaux d'Airflow ne sont pas dans le dépôt (voir `.gitignore`).
 
 ## Lancer le projet
 
@@ -83,4 +145,4 @@ L'interface est alors sur http://localhost:5000, dans l'expérience `rossmann`.
 uv run pytest
 ```
 
-Les tests vérifient la création des variables, la métrique, la coupure dans le temps, la baseline et les profils par magasin. Ils tournent aussi automatiquement sur GitHub à chaque `push`, avec GitHub Actions.
+Les tests vérifient la création des variables, la métrique, la coupure dans le temps, la baseline, les profils par magasin et l'API (avec un faux modèle, sans fichier de données). Ils tournent aussi automatiquement sur GitHub à chaque `push`, avec GitHub Actions.
